@@ -119,6 +119,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 					if buildInfo, err := RunAdminCommand(client, "buildInfo"); err == nil {
 						cluster["buildInfo"] = trimMap(buildInfo)
 					}
+					if getCmdLineOpts, err := RunAdminCommand(client, "getCmdLineOpts"); err == nil {
+						cluster["getCmdLineOpts"] = trimMap(getCmdLineOpts)
+					}
 					if sinfo.Cluster == "replica" {
 						cluster["oplog"] = sinfo.Repl["oplog"]
 						var replSetGetStatus bson.M
@@ -348,31 +351,6 @@ func trimMap(doc bson.M) bson.M {
 	delete(doc, "operationTime")
 	delete(doc, "ok")
 	return doc
-}
-
-// GetStorageSize returns storage size in [TGMK] B
-func GetStorageSize(num interface{}) string {
-	f := fmt.Sprintf("%v", num)
-	x, err := strconv.ParseFloat(f, 64)
-	if err != nil {
-		return f
-	}
-
-	if x >= (1024 * 1024 * 1024 * 1024) {
-		s := fmt.Sprintf("%v", x/(1024*1024*1024*1024))
-		return round(s) + " TB"
-	} else if x >= (1024 * 1024 * 1024) {
-		s := fmt.Sprintf("%v", x/(1024*1024*1024))
-		return round(s) + " GB"
-	} else if x >= (1024 * 1024) {
-		s := fmt.Sprintf("%v", x/(1024*1024))
-		return round(s) + " MB"
-	} else if x >= 1024 {
-		s := fmt.Sprintf("%v", x/1024)
-		return round(s) + " KB"
-	}
-	s := fmt.Sprintf("%v", x)
-	return round(s) + " B"
 }
 
 func round(s string) string {

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
@@ -23,9 +24,7 @@ import (
 var version = "self-built"
 
 func main() {
-	caFile := flag.String("sslCAFile", "", "CA file")
 	changeStreams := flag.Bool("changeStreams", false, "change streams watch")
-	clientPEMFile := flag.String("sslPEMKeyFile", "", "client PEM file")
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
 	cardinality := flag.String("cardinality", "", "check collection cardinality")
@@ -50,6 +49,10 @@ func main() {
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
 	span := flag.Int("span", -1, "granunarity for summary")
+	sslCAFile := flag.String("sslCAFile", "", "CA file")
+	sslPEMKeyFile := flag.String("sslPEMKeyFile", "", "client PEM file")
+	tlsCAFile := flag.String("tlsCAFile", "", "TLS CA file")
+	tlsCertificateKeyFile := flag.String("tlsCertificateKeyFile", "", "TLS CertificateKey File")
 	tps := flag.Int("tps", 20, "number of trasaction per second per connection")
 	total := flag.Int("total", 1000, "nuumber of documents to create")
 	tx := flag.String("tx", "", "file with defined transactions")
@@ -57,8 +60,15 @@ func main() {
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
 	webserver := flag.Bool("web", false, "enable web server")
+	yes := flag.Bool("yes", false, "bypass confirmation")
 
 	flag.Parse()
+	if *tlsCAFile == "" && *sslCAFile != "" {
+		*tlsCAFile = *sslCAFile
+	}
+	if *tlsCertificateKeyFile == "" && *sslPEMKeyFile != "" {
+		*tlsCertificateKeyFile = *sslPEMKeyFile
+	}
 	if *uri == "" && len(flag.Args()) > 0 {
 		*uri = flag.Arg(0)
 	}
@@ -152,11 +162,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if *uri, err = mdb.Parse(*uri); err != nil {
-		log.Fatal(err)
-	}
-
-	client, err := mdb.NewMongoClient(*uri, *caFile, *clientPEMFile)
+	client, err := mdb.NewMongoClient(*uri, *tlsCAFile, *tlsCertificateKeyFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -235,8 +241,17 @@ func main() {
 	}
 
 	client.Disconnect(context.Background())
+	if *yes == false {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Begin a load test [Y/n]: ")
+		text, _ := reader.ReadString('\n')
+		text = strings.Replace(text, "\n", "", -1)
+		if text != "y" && text != "" && text != "Y" {
+			os.Exit(0)
+		}
+	}
 	var runner *sim.Runner
-	if runner, err = sim.NewRunner(*uri, *caFile, *clientPEMFile); err != nil {
+	if runner, err = sim.NewRunner(*uri, *tlsCAFile, *tlsCertificateKeyFile); err != nil {
 		log.Fatal(err)
 	}
 	runner.SetTPS(*tps)
